@@ -18,7 +18,7 @@ GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama").lower()
 GROQ_FALLBACK_MODELS = tuple(
     model.strip()
-    for model in os.getenv("GROQ_FALLBACK_MODELS", "qwen/qwen3-32b,llama-3.3-70b-versatile").split(",")
+    for model in os.getenv("GROQ_FALLBACK_MODELS", "openai/gpt-oss-20b").split(",")
     if model.strip()
 )
 MAX_CHAT_HISTORY_MESSAGES = int(os.getenv("MAX_CHAT_HISTORY_MESSAGES", "12"))

@@ -1,0 +1,4 @@
+[submodule "optics_rag"]
+	path = optics_rag
+	url = https://github.com/Sapana303/optics_rag_chatbot.git
+	branch = main

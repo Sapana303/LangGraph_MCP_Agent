@@ -75,8 +75,13 @@ async def invoke_with_fallback(models: Sequence[tuple[str, object]], messages: l
                 last_error = error
                 retry = attempt == 0 and _is_transient(error)
                 logger.warning(
-                    "Model invocation failed model=%s attempt=%d retry=%s error_type=%s",
-                    model_id, attempt + 1, retry, type(error).__name__,
+                    "Model invocation failed model=%s attempt=%d retry=%s error_type=%s status_code=%s provider_code=%s",
+                    model_id,
+                    attempt + 1,
+                    retry,
+                    type(error).__name__,
+                    getattr(error, "status_code", "unknown"),
+                    getattr(error, "code", "unknown"),
                 )
                 if retry:
                     await asyncio.sleep(0.6)

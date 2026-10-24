@@ -20,41 +20,58 @@ Single MCP tool service (mcp_service/main.py, port 8002)
   +-- filesystem, weather, web-search, RAG, scraper tools
   |
   v
-Optics RAG FastAPI (separate project, port 8000)
+Optics RAG FastAPI (separate project, internal port 8000)
   +-- Chroma + BM25 hybrid retrieval + citations/images
+  +-- Ollama embeddings and image captioning
 ```
 
 The UI displays data and calls the backend only. The backend owns LangGraph and discovers tool schemas from the MCP service. `tools_condition` routes only model-requested calls to the `ToolNode`, so there is no large `if`/`elif` intent router.
 
 ## Run with Docker Compose
 
-Docker Compose is the recommended way to run the complete React UI, FastAPI backend, and MCP tool service. Install Docker Desktop on Windows or Docker Engine with the Compose plugin on Linux, then run these commands in PowerShell from the project folder:
+Docker Compose is the recommended way to run the complete stack: React UI, FastAPI backend, MCP service, and the independent Optics RAG service. The Optics project stays in its own GitHub repository and is included here as a Git submodule. Install Docker Desktop on Windows or Docker Engine with the Compose plugin on Linux.
+
+Clone both repositories and create `.env`:
 
 ```powershell
+git clone --recurse-submodules https://github.com/Sapana303/LangGraph_MCP_Agent.git
+Set-Location LangGraph_MCP_Agent
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
-Edit `.env` and set `GROQ_API_KEY` to your key. `TAVILY_API_KEY` is optional; without it, web search uses the DuckDuckGo fallback. Then start the services:
+If you already cloned without submodules, run `git submodule update --init --recursive` from the repository folder. The Optics RAG GitHub repository must be public for anonymous clones; otherwise, grant each user access to it.
+
+Edit `.env` and set `GROQ_API_KEY` to your key. `TAVILY_API_KEY` is optional; without it, web search uses the DuckDuckGo fallback. Then start all services:
 
 ```powershell
 docker compose up --build -d
 ```
 
-Open **http://localhost:8080**. To follow service output or stop the containers:
+On first start, Docker builds both projects, downloads the Optics Ollama embedding and vision models, and creates a small demo index. This can take several minutes and requires enough disk space for the models. Open **http://localhost:8080** when the stack is healthy. To follow service output or stop the containers:
 
 ```powershell
 docker compose ps
 docker compose logs -f
+docker compose logs -f optics-api
 docker compose down
 ```
 
-`docker compose down` preserves chat history in the `chat_data` volume. The services write `frontend.log`, `backend.log`, and `mcp-service.log` into the local `logs/` directory. Only the web UI is exposed on the host; the backend and MCP service communicate over the private Compose network.
+`docker compose down` preserves chat history and Optics' Chroma/BM25 index, Ollama models, uploaded documents, and extracted images in Docker volumes. The services write `frontend.log`, `backend.log`, and `mcp-service.log` into the local `logs/` directory. Only the web UI is exposed on the host; the backend, MCP service, and Optics API communicate over the private Compose network. Document uploads are enabled in this combined setup.
 
-### Connect Optics RAG
+### Run Optics RAG by itself
 
-If your separate Optics RAG service is running on the same computer on port 8000, Compose routes its requests through `host.docker.internal`. Make sure Optics listens on an interface Docker can reach (for Uvicorn, use `--host 0.0.0.0 --port 8000`). If it runs at a different address, set `DOCKER_OPTICS_RAG_API_URL` in `.env`, for example `DOCKER_OPTICS_RAG_API_URL=http://host.docker.internal:8000`. The app can also run without Optics; chat, weather, web search, and scraping do not require it.
+Optics remains independently runnable using its own Compose file and README:
 
-For an Oracle Cloud VM or another Linux host, use the same Compose command after creating `.env`. Set `APP_PORT=80` in `.env` if you want the app at `http://<public-ip>/`; otherwise it uses port 8080. Allow the chosen TCP port in the cloud network rules and host firewall. For Optics running on that VM, make its API reachable from Docker containers and set `DOCKER_OPTICS_RAG_API_URL` to the host address and port.
+```powershell
+Set-Location optics_rag
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+# Set GROQ_API_KEY in optics_rag/.env before starting the standalone stack.
+docker compose up --build -d
+```
+
+See the [Optics RAG README](optics_rag/README.md) for its independent setup and configuration. Use this standalone stack when you only want Optics RAG. The combined root Compose stack is the one to use when the LangGraph agent should call Optics.
+
+For an Oracle Cloud VM or another Linux host, use the same root Compose command after cloning with submodules and creating `.env`. Set `APP_PORT=80` in `.env` if you want the app at `http://<public-ip>/`; otherwise it uses port 8080. Allow the chosen TCP port in the cloud network rules and host firewall. The API, Ollama service, and vector store are not published publicly.
 
 To update after pulling changes, run `docker compose up --build -d` again. Do not commit `.env`.
 

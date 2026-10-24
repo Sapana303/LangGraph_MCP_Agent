@@ -1,4 +1,94 @@
 services:
+  optics-ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - optics_ollama_models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  optics-models:
+    image: ollama/ollama:latest
+    entrypoint: ["/bin/sh", "-c"]
+    command: >-
+      ollama pull "$${EMBED_MODEL}" && ollama pull "$${VISION_MODEL}"
+    environment:
+      OLLAMA_HOST: http://optics-ollama:11434
+      EMBED_MODEL: ${OPTICS_EMBED_MODEL:-nomic-embed-text}
+      VISION_MODEL: ${OPTICS_VISION_MODEL:-qwen2.5vl:3b}
+    volumes:
+      - optics_ollama_models:/root/.ollama
+    depends_on:
+      optics-ollama:
+        condition: service_healthy
+    restart: "no"
+
+  optics-state-permissions:
+    image: alpine:3.22
+    command: ["sh", "-c", "chown -R 10001:10001 /state /raw /images"]
+    volumes:
+      - optics_state:/state
+      - optics_raw_documents:/raw
+      - optics_images:/images
+    restart: "no"
+
+  optics-demo-index:
+    build:
+      context: ./optics_rag
+      dockerfile: Dockerfile
+    user: "10001:10001"
+    command: ["python", "scripts/prepare_demo_index.py"]
+    environment:
+      OLLAMA_HOST: http://optics-ollama:11434
+      EMBED_MODEL: ${OPTICS_EMBED_MODEL:-nomic-embed-text}
+      VISION_MODEL: ${OPTICS_VISION_MODEL:-qwen2.5vl:3b}
+      CHROMA_PERSIST_DIR: /var/lib/optics-rag/chroma_db
+      BM25_INDEX_PATH: /var/lib/optics-rag/bm25_index.pkl
+    volumes:
+      - optics_state:/var/lib/optics-rag
+    depends_on:
+      optics-state-permissions:
+        condition: service_completed_successfully
+      optics-models:
+        condition: service_completed_successfully
+    restart: "no"
+
+  optics-api:
+    build:
+      context: ./optics_rag
+      dockerfile: Dockerfile
+    user: "10001:10001"
+    command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    env_file:
+      - .env
+    environment:
+      DEMO_MODE: ${OPTICS_DEMO_MODE:-false}
+      OLLAMA_HOST: http://optics-ollama:11434
+      CHROMA_PERSIST_DIR: /var/lib/optics-rag/chroma_db
+      BM25_INDEX_PATH: /var/lib/optics-rag/bm25_index.pkl
+    volumes:
+      - optics_state:/var/lib/optics-rag
+      - optics_raw_documents:/app/data/raw
+      - optics_images:/app/data/images
+    depends_on:
+      optics-demo-index:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
   mcp:
     build:
       context: .
@@ -8,9 +98,10 @@ services:
     environment:
       MCP_SERVER_HOST: 0.0.0.0
       MCP_SERVER_PORT: 8002
-      OPTICS_RAG_API_URL: ${DOCKER_OPTICS_RAG_API_URL:-http://host.docker.internal:8000}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      OPTICS_RAG_API_URL: http://optics-api:8000
+    depends_on:
+      optics-api:
+        condition: service_healthy
     volumes:
       - ./logs:/app/logs
     restart: unless-stopped
@@ -27,11 +118,12 @@ services:
       OLLAMA_ENABLED: "false"
       MCP_SERVER_URL: http://mcp:8002/mcp
       CHAT_DATABASE_PATH: /app/data/chat_history.db
-      OPTICS_RAG_API_URL: ${DOCKER_OPTICS_RAG_API_URL:-http://host.docker.internal:8000}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      OPTICS_RAG_API_URL: http://optics-api:8000
     depends_on:
-      - mcp
+      mcp:
+        condition: service_started
+      optics-api:
+        condition: service_healthy
     volumes:
       - chat_data:/app/data
       - ./logs:/app/logs
@@ -49,3 +141,7 @@ services:
 
 volumes:
   chat_data:
+  optics_state:
+  optics_ollama_models:
+  optics_raw_documents:
+  optics_images:

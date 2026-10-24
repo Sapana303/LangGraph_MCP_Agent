@@ -1,0 +1,14 @@
+beautifulsoup4
+crawl4ai
+fastapi
+langchain-groq
+langchain-ollama
+langchain-mcp-adapters
+langgraph
+mcp
+python-multipart
+python-dotenv
+requests
+streamlit
+uvicorn
+pytest

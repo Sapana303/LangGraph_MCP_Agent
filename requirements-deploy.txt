@@ -1,0 +1,13 @@
+# Runtime dependencies for the Docker deployment.
+# Streamlit and Crawl4AI remain available in requirements.txt for local use.
+beautifulsoup4
+fastapi
+langchain-groq
+langchain-ollama
+langchain-mcp-adapters
+langgraph
+mcp
+python-multipart
+python-dotenv
+requests
+uvicorn

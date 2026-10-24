@@ -1,4 +1,4 @@
-"""Typed HTTP contracts between the Streamlit frontend and backend."""
+"""Typed HTTP contracts between the web UI, terminal client, and backend."""
 
 from __future__ import annotations
 
@@ -44,5 +44,10 @@ class ConversationResponse(BaseModel):
 class ClientEventRequest(BaseModel):
     """Small browser diagnostic event; never send prompts or document content."""
 
-    event: str = Field(min_length=1, max_length=120)
-    detail: str | None = Field(default=None, max_length=500)
+    event: Literal[
+        "chat_completed",
+        "chat_failed",
+        "document_upload_completed",
+        "document_upload_failed",
+    ]
+    detail: str | None = Field(default=None, pattern=r"^[A-Z0-9_]{1,64}$")

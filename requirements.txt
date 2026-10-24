@@ -9,6 +9,5 @@ mcp
 python-multipart
 python-dotenv
 requests
-streamlit
 uvicorn
 pytest

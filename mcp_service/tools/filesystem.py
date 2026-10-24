@@ -43,7 +43,7 @@ def list_directory(
     List files and folders inside the LangGraph_MCP_Agent project.
 
     directory:
-        Relative path such as '.', 'backend', 'frontend',
+        Relative path such as '.', 'backend', 'mcp_service',
         'mcp_service', 'logs', or 'mcp_service/tools'.
 
     recursive:

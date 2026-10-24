@@ -1,4 +1,4 @@
-"""Independent FastAPI backend for the Streamlit application."""
+"""FastAPI backend for the React web application and terminal client."""
 
 from __future__ import annotations
 
@@ -24,10 +24,11 @@ from backend.schemas import (
     DocumentIngestResponse,
     HealthResponse,
 )
-from backend.logging_utils import get_logger
+from backend.logging_utils import get_frontend_logger, get_logger
 
 
 logger = get_logger(__name__)
+frontend_logger = get_frontend_logger("web.events")
 
 
 @asynccontextmanager
@@ -40,7 +41,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="LangGraph MCP Agent Backend", version="2.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8501", "http://127.0.0.1:8501", "http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
@@ -48,7 +49,7 @@ app.add_middleware(
 
 @app.middleware("http")
 async def request_logging(request: Request, call_next):
-    """Critical boundary: assign one safe trace ID to every frontend request."""
+    """Critical boundary: assign one safe trace ID to every UI request."""
     trace_id = request.headers.get("X-Request-ID", str(uuid4()))
     token = request_id.set(trace_id)
     started = perf_counter()
@@ -81,7 +82,7 @@ async def health() -> HealthResponse:
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:
-    # Critical frontend -> backend boundary. React posts the question here.
+    # Critical web UI -> backend boundary. React posts the question here.
     try:
         conversation_id = request.conversation_id or await asyncio.to_thread(store.create)
         history = (
@@ -111,8 +112,8 @@ async def conversation(conversation_id: str) -> ConversationResponse:
 
 @app.post("/client-events", status_code=202)
 async def client_event(event: ClientEventRequest) -> dict[str, str]:
-    """Receive safe React diagnostics in the same backend trace log."""
-    logger.info("Frontend event event=%s detail=%s", event.event, event.detail or "none")
+    """Write safe React diagnostics to the dedicated frontend log."""
+    frontend_logger.info("Web client event event=%s detail=%s", event.event, event.detail or "none")
     return {"status": "accepted"}
 
 

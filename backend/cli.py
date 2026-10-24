@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from frontend.api_client import BackendUnavailableError, ask_backend
+from backend.api_client import BackendUnavailableError, ask_backend
 
 
 def main() -> None:

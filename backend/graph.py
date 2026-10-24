@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 SYSTEM_PROMPT = """You are a helpful assistant with MCP tools. Choose tools from intent, not keyword matching.
 
 Tool routing guide:
-- list_files: inspect the LangGraph_MCP_Agent project filesystem. It can list directories and files under the project root, including backend, frontend, mcp_service, data, logs, tests, and web. Use it for filesystem discovery only; it does not read file contents. Use recursive=true when the user asks to inspect nested folders.
+- list_files: inspect the LangGraph_MCP_Agent project filesystem. It can list directories and files under the project root, including backend, mcp_service, data, logs, tests, and web. Use it for filesystem discovery only; it does not read file contents. Use recursive=true when the user asks to inspect nested folders.
 - weather: current weather for a named location.
 - web_search: discover public, current, or external information from a topic without a known URL.
 - rag_search: answer from the user's indexed internal/uploaded documents and include its source information.

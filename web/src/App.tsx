@@ -44,9 +44,10 @@ export default function App() {
   const chat = useMutation({
     mutationFn: () => sendChat(question, conversationId, activeSource),
     onError: (error) => {
-      void reportClientEvent("chat_failed", error instanceof Error ? error.message : "Unknown browser error");
+      void reportClientEvent("chat_failed", error instanceof ApiError ? error.code : error instanceof Error ? error.name.toUpperCase().replace(/[^A-Z0-9_]/g, "_") : "UNKNOWN_ERROR");
     },
     onSuccess: (data) => {
+      void reportClientEvent("chat_completed");
       if (!conversationId) {
         setConversationId(data.conversation_id);
         localStorage.setItem("mcp-atlas-conversation", data.conversation_id);
@@ -63,9 +64,10 @@ export default function App() {
   const upload = useMutation({
     mutationFn: (file: File) => uploadDocument(file),
     onError: (error) => {
-      void reportClientEvent("document_upload_failed", error instanceof Error ? error.message : "Unknown browser error");
+      void reportClientEvent("document_upload_failed", error instanceof ApiError ? error.code : error instanceof Error ? error.name.toUpperCase().replace(/[^A-Z0-9_]/g, "_") : "UNKNOWN_ERROR");
     },
     onSuccess: (data) => {
+      void reportClientEvent("document_upload_completed");
       setActiveSource(data.filename);
       setNotice(`Indexed ${data.chunks_added} chunks from ${data.filename}.`);
     },

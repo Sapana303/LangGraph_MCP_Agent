@@ -7,7 +7,7 @@ The RAG capability deliberately reuses the existing `optics_rag` project. This r
 ## Architecture
 
 ```text
-React UI (web/, port 5173)
+React UI (web/, port 5173 in development; port 8080 with Docker Compose by default)
   |
   | HTTP /chat
   v
@@ -26,96 +26,67 @@ Optics RAG FastAPI (separate project, port 8000)
 
 The UI displays data and calls the backend only. The backend owns LangGraph and discovers tool schemas from the MCP service. `tools_condition` routes only model-requested calls to the `ToolNode`, so there is no large `if`/`elif` intent router.
 
-## Setup
+## Run with Docker Compose
 
-Use Python 3.10 or later. From this repository:
+Docker Compose is the recommended way to run the complete React UI, FastAPI backend, and MCP tool service. Install Docker Desktop on Windows or Docker Engine with the Compose plugin on Linux, then run these commands in PowerShell from the project folder:
+
+```powershell
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+```
+
+Edit `.env` and set `GROQ_API_KEY` to your key. `TAVILY_API_KEY` is optional; without it, web search uses the DuckDuckGo fallback. Then start the services:
+
+```powershell
+docker compose up --build -d
+```
+
+Open **http://localhost:8080**. To follow service output or stop the containers:
+
+```powershell
+docker compose ps
+docker compose logs -f
+docker compose down
+```
+
+`docker compose down` preserves chat history in the `chat_data` volume. The services write `frontend.log`, `backend.log`, and `mcp-service.log` into the local `logs/` directory. Only the web UI is exposed on the host; the backend and MCP service communicate over the private Compose network.
+
+### Connect Optics RAG
+
+If your separate Optics RAG service is running on the same computer on port 8000, Compose routes its requests through `host.docker.internal`. Make sure Optics listens on an interface Docker can reach (for Uvicorn, use `--host 0.0.0.0 --port 8000`). If it runs at a different address, set `DOCKER_OPTICS_RAG_API_URL` in `.env`, for example `DOCKER_OPTICS_RAG_API_URL=http://host.docker.internal:8000`. The app can also run without Optics; chat, weather, web search, and scraping do not require it.
+
+For an Oracle Cloud VM or another Linux host, use the same Compose command after creating `.env`. Set `APP_PORT=80` in `.env` if you want the app at `http://<public-ip>/`; otherwise it uses port 8080. Allow the chosen TCP port in the cloud network rules and host firewall. For Optics running on that VM, make its API reachable from Docker containers and set `DOCKER_OPTICS_RAG_API_URL` to the host address and port.
+
+To update after pulling changes, run `docker compose up --build -d` again. Do not commit `.env`.
+
+## Run services separately for development
+
+Use Python 3.10 or later. Install the Python dependencies and create `.env` if needed:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-Copy-Item .env.example .env
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
-Set `GROQ_API_KEY` in `.env`. `TAVILY_API_KEY` is optional: when it is configured, web search uses Tavily; otherwise it uses a public DuckDuckGo HTML fallback. Weather uses Open-Meteo's public API and does not need a key. Never commit `.env`.
-
-## Start Services
-
-Run each process in a separate terminal. They can be changed and restarted independently during development.
-
-### 1. Optics RAG
+Run the MCP service and backend in separate terminals (activate `.venv` in each terminal):
 
 ```powershell
-cd C:\Users\sapana.kumari\Downloads\optics_rag\optics_rag
-.\venv\Scripts\Activate.ps1
-uvicorn api.main:app --reload --port 8000
-```
-
-### 2. MCP Tool Service
-
-```powershell
-cd C:\Users\sapana.kumari\Downloads\LangGraph_MCP_Agent
-.\.venv\Scripts\Activate.ps1
 uvicorn mcp_service.asgi:app --reload --port 8002
 ```
 
-It exposes all five tools at `http://127.0.0.1:8002/mcp`.
-
-### 3. LangGraph Backend
-
 ```powershell
-cd C:\Users\sapana.kumari\Downloads\LangGraph_MCP_Agent
-.\.venv\Scripts\Activate.ps1
 uvicorn backend.main:app --reload --port 8001
 ```
 
-Check it at `http://127.0.0.1:8001/health`.
-
-### 4. React UI
+The MCP endpoint is `http://127.0.0.1:8002/mcp`; the backend health endpoint is `http://127.0.0.1:8001/health`. Start the React development server in another terminal (Node.js LTS required):
 
 ```powershell
-cd C:\Users\sapana.kumari\Downloads\LangGraph_MCP_Agent
 npm --prefix web install
 npm --prefix web run dev
 ```
 
-Install Node.js LTS first if `npm` is not available. Open `http://localhost:5173` after Vite starts. The React UI calls only the FastAPI backend at `http://127.0.0.1:8001`; FastAPI owns the MCP and Optics service connections.
-
-The previous Streamlit UI is retained in `frontend/ui.py` as a working reference during the transition, but it is not the primary UI.
-
-Set `OPTICS_RAG_API_URL` in `.env` if Optics runs on another URL or port.
-
-## Deploy with Docker Compose
-
-The included Compose setup runs the React UI, FastAPI backend, and MCP tool service together. Only the web port is exposed publicly; Nginx routes API requests internally. Chat history is kept in a Docker volume across restarts. This works on a Linux VM such as Oracle Cloud Infrastructure and on other hosts with Docker Compose.
-
-1. Install Docker Engine and the Docker Compose plugin on the host.
-2. Copy or clone this project to the host and create its environment file:
-
-   ```bash
-   cp .env.example .env
-   ```
-
-3. Edit `.env` and set `GROQ_API_KEY` to a valid key. `TAVILY_API_KEY` is optional. For an Oracle VM, set `APP_PORT=80` to serve the app on standard HTTP; otherwise it defaults to port `8080`.
-4. Build and start the services:
-
-   ```bash
-   docker compose up --build -d
-   ```
-
-5. Open `http://<your-vm-public-ip>/` (or `http://<your-vm-public-ip>:8080/` with the default port). Allow that TCP port in both the cloud network rules and the VM firewall.
-
-Useful operations:
-
-```bash
-docker compose logs -f
-docker compose ps
-docker compose down
-```
-
-`docker compose down` keeps the `chat_data` volume. To back up chat history, back up that Docker volume. Document RAG is optional and still requires a separately reachable Optics RAG service; set `OPTICS_RAG_API_URL` in `.env` if you have one. The app can run without Optics for chat, weather, and web research. Do not commit `.env`; cloud deployments should provide real credentials through protected environment configuration.
-
-To update after pulling new code, run `docker compose up --build -d` again.
+Open `http://localhost:5173`. To use RAG locally, also start your Optics project on port 8000 and set `OPTICS_RAG_API_URL` in `.env` if needed.
 
 ## Run the terminal client
 
@@ -129,10 +100,10 @@ The React sidebar supports PDF, DOCX, XLSX, Markdown, and text uploads. Selectin
 
 Example requests:
 
-- `List files in ./data/documents`
+- `List files in ./mcp_service/tools`
 - `What is the weather in Bangalore?`
 - `Search the web for LangGraph MCP integration`
-- `What does our employee handbook say about paid leave?`
+- `What does the uploaded employee handbook say about paid leave?`
 - `Read https://example.com and tell me the page title`
 - `Search the web for the latest LangGraph release and scrape the official release page`
 
@@ -150,11 +121,11 @@ The tests cover safe filesystem boundaries, invalid scraper input, and an unavai
 
 All tools return structured `ok`/`error` responses instead of leaking tracebacks. The graph's `ToolNode` converts unexpected tool exceptions into tool results, allowing the LLM to explain the failure.
 
-Logs are separated by service: `logs/frontend.log`, `logs/backend.log`, and `logs/mcp-service.log`. The backend uses rotating JSON logs with a per-request `request_id`; the React UI sends only safe failure metadata to `/client-events`, so a browser error can be matched to backend activity. To protect private data, logs record question length rather than question text, and never record API keys, `.env` values, document content, or complete URL query strings.
+Logs are separated by service: `logs/frontend.log` receives safe React UI events, `logs/backend.log` records API and agent activity, and `logs/mcp-service.log` records MCP tool activity. Backend and web event logs use rotating JSON logs with a per-request `request_id`, so a browser event can be matched to its API request. To protect private data, logs record question length rather than question text, and never record API keys, `.env` values, document content, or complete URL query strings.
 
-Chat history is stored locally in SQLite at `data/chat_history.db`. Assistant artifact metadata, such as RAG citations and image references, is stored with the assistant reply so reopening the conversation keeps its sources visible.
+Chat history is stored in SQLite. In local development it uses `data/chat_history.db`; Docker Compose stores it in the persistent `chat_data` volume. Assistant artifact metadata, such as RAG citations and image references, is stored with the assistant reply so reopening the conversation keeps its sources visible.
 
-The configured `GROQ_MODEL` is tried first. Set `GROQ_FALLBACK_MODELS` to a comma-separated list in `.env` to customize the fallback order; the default fallback is `openai/gpt-oss-20b`.
+The configured `GROQ_MODEL` is tried first. Set `GROQ_FALLBACK_MODELS` to a comma-separated list in `.env` to customize the fallback order.
 
 ## Known limitations
 

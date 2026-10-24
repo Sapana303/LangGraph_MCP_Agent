@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 
 
 def _history_to_messages(history: list[dict[str, Any]]) -> list:
-    """Convert the frontend's small JSON chat history to LangChain messages."""
+    """Convert the UI's small JSON chat history to LangChain messages."""
     return [
         HumanMessage(content=message["content"])
         if message["role"] == "user"

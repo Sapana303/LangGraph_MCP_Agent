@@ -1,5 +1,5 @@
 # Runtime dependencies for the Docker deployment.
-# Streamlit and Crawl4AI remain available in requirements.txt for local use.
+# Crawl4AI remains available in requirements.txt for optional local use.
 beautifulsoup4
 fastapi
 langchain-groq

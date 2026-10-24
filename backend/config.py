@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://127.0.0.1:8001").rstrip("/")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama").lower()
 GROQ_FALLBACK_MODELS = tuple(

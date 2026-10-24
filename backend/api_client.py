@@ -1,17 +1,14 @@
-"""HTTP client used by Streamlit; it contains no LangGraph or MCP logic."""
+"""HTTP client used by the terminal UI to call the FastAPI backend."""
 
 from __future__ import annotations
 
 import requests
 
-try:  # Supports direct Streamlit execution and package imports.
-    from frontend.config import BACKEND_API_URL
-except ModuleNotFoundError:
-    from config import BACKEND_API_URL
+from backend.config import BACKEND_API_URL
 
 
 class BackendUnavailableError(RuntimeError):
-    """Raised when the independently running backend cannot answer a UI request."""
+    """Raised when the independently running backend cannot answer a request."""
 
 
 def ask_backend(question: str, history: list[dict], active_source_file: str | None) -> tuple[str, dict | None]:
@@ -34,7 +31,7 @@ def ask_backend(question: str, history: list[dict], active_source_file: str | No
 
 
 def ingest_document(filename: str, content: bytes, content_type: str | None) -> dict:
-    """Send an upload to the backend, which forwards it to Optics RAG."""
+    """Forward a document to the backend, which sends it to Optics RAG."""
     try:
         response = requests.post(
             f"{BACKEND_API_URL}/documents",

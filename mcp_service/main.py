@@ -36,7 +36,6 @@ def list_files(
     Examples:
     - "." -> project root
     - "backend" -> backend directory
-    - "frontend" -> frontend directory
     - "mcp_service" -> MCP service
     - "mcp_service/tools" -> MCP tools
     - "logs" -> project logs
